@@ -1,8 +1,8 @@
 ---
 layout: post
-title: "Classifying Text Messages as Spam or Ham"
+title: "Classifying Text Messages as Spam or Ham using NLP"
 subtitle: "using python, nltk and scikit-learn."
-background: '/img/posts/01.jpg'
+background: '/img/posts/NLP/NLP-bg.jpg'
 ---
 
 # NLP (Natural Language Processing) with Python
