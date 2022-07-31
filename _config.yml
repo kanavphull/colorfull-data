@@ -1,9 +1,9 @@
-title:              Clean Blog
+title:              Colorfull Data
 email:              your-email@example.com
-description:        A Blog Theme by Start Bootstrap
-author:             Start Bootstrap
-baseurl:            "/startbootstrap-clean-blog-jekyll"
-url:                "https://startbootstrap.github.io"
+description:        A Neophyte's Data Science Portfolio
+author:             Colorfull
+baseurl:            ""
+url:                "https://kanavphull.github.io/colorfull-data"
 
 # Social Profiles
 twitter_username:   SBootstrap
