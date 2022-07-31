@@ -2,8 +2,8 @@ title:              Colorfull Data
 email:              your-email@example.com
 description:        A Neophyte's Data Science Portfolio
 author:             Colorfull
-baseurl:            "https://github.com/kanavphull/colorfull-data"
-url:                "https://kanavphull.github.io/colorfull-data/"
+baseurl:            "/colorfull-data"
+url:                "https://kanavphull.github.io"
 
 # Social Profiles
 twitter_username:   SBootstrap
