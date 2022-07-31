@@ -1,0 +1,964 @@
+I"��<h1 id="nlp-natural-language-processing-with-python">NLP (Natural Language Processing) with Python</h1>
+
+<p>Natural Language Processing basically consists of combining machine learning techniques with text, and using math and statistics to get that text in a format that the machine learning algorithms can understand!</p>
+
+<p>We will be using NLP to classify text as spam or ham.</p>
+
+<p><strong>Requirements: We will need to have NLTK installed, along with downloading the corpus for stopwords.</strong></p>
+
+<h2 id="get-the-data">Get the Data</h2>
+
+<p>We’ll be using a dataset from the <a href="https://archive.ics.uci.edu/ml/datasets/SMS+Spam+Collection">UCI datasets</a>!</p>
+
+<p>The file we are using contains a collection of more than 5 thousand SMS phone messages. You can check out the <strong>readme</strong> file for more info.</p>
+
+<p>Let’s go ahead and use rstrip() plus a list comprehension to get a list of all the lines of text messages:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="p">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">open</span><span class="p">(</span><span class="s">'smsspamcollection/SMSSpamCollection'</span><span class="p">)]</span>
+<span class="c1"># I have entered the local location for the file in my system. You should enter the location accordingly.
+</span><span class="k">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">messages</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>5574
+</code></pre></div></div>
+
+<p>A collection of texts is also sometimes called “corpus”. Let’s print the first ten messages and number them using <strong>enumerate</strong>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">message_no</span><span class="p">,</span> <span class="n">message</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">messages</span><span class="p">[:</span><span class="mi">10</span><span class="p">]):</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">message_no</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">'</span><span class="se">\n</span><span class="s">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>0 ham	Go until jurong point, crazy.. Available only in bugis n great world la e buffet... Cine there got amore wat...
+
+
+1 ham	Ok lar... Joking wif u oni...
+
+
+2 spam	Free entry in 2 a wkly comp to win FA Cup final tkts 21st May 2005. Text FA to 87121 to receive entry question(std txt rate)T&amp;C's apply 08452810075over18's
+
+
+3 ham	U dun say so early hor... U c already then say...
+
+
+4 ham	Nah I don't think he goes to usf, he lives around here though
+
+
+5 spam	FreeMsg Hey there darling it's been 3 week's now and no word back! I'd like some fun you up for it still? Tb ok! XxX std chgs to send, Â£1.50 to rcv
+
+
+6 ham	Even my brother is not like to speak with me. They treat me like aids patent.
+
+
+7 ham	As per your request 'Melle Melle (Oru Minnaminunginte Nurungu Vettam)' has been set as your callertune for all Callers. Press *9 to copy your friends Callertune
+
+
+8 spam	WINNER!! As a valued network customer you have been selected to receivea Â£900 prize reward! To claim call 09061701461. Claim code KL341. Valid 12 hours only.
+
+
+9 spam	Had your mobile 11 months or more? U R entitled to Update to the latest colour mobiles with camera for Free! Call The Mobile Update Co FREE on 08002986030
+</code></pre></div></div>
+
+<p>Due to the spacing we can tell that this is a <a href="http://en.wikipedia.org/wiki/Tab-separated_values">TSV</a> (“tab separated values”) file, where the first column is a label saying whether the given message is a normal message (commonly known as “ham”) or “spam”. The second column is the message itself. (Note our numbers aren’t part of the file, they are just from the <strong>enumerate</strong> call).</p>
+
+<p>Using these labeled ham and spam examples, we’ll <strong>train a machine learning model to learn to discriminate between ham/spam automatically</strong>. Then, with a trained model, we’ll be able to <strong>classify arbitrary unlabeled messages</strong> as ham or spam.</p>
+
+<p>From the official SciKit Learn documentation, we can visualize our process:</p>
+
+<p>Instead of parsing TSV manually using Python, we can just take advantage of pandas! Let’s go ahead and import it!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+</code></pre></div></div>
+
+<p>We’ll use <strong>read_csv</strong> and make note of the <strong>sep</strong> argument, we can also specify the desired column names by passing in a list of <em>names</em>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s">'smsspamcollection/SMSSpamCollection'</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s">'</span><span class="se">\t</span><span class="s">'</span><span class="p">,</span>
+                           <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s">"label"</span><span class="p">,</span> <span class="s">"message"</span><span class="p">])</span>
+<span class="n">messages</span><span class="p">.</span><span class="n">head</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>label</th>
+      <th>message</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>ham</td>
+      <td>Go until jurong point, crazy.. Available only ...</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>ham</td>
+      <td>Ok lar... Joking wif u oni...</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>spam</td>
+      <td>Free entry in 2 a wkly comp to win FA Cup fina...</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>ham</td>
+      <td>U dun say so early hor... U c already then say...</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>ham</td>
+      <td>Nah I don't think he goes to usf, he lives aro...</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="exploratory-data-analysis">Exploratory Data Analysis</h2>
+
+<p>Let’s check out some of the stats with some plots and the built-in methods in pandas!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages</span><span class="p">.</span><span class="n">describe</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>label</th>
+      <th>message</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>count</th>
+      <td>5572</td>
+      <td>5572</td>
+    </tr>
+    <tr>
+      <th>unique</th>
+      <td>2</td>
+      <td>5169</td>
+    </tr>
+    <tr>
+      <th>top</th>
+      <td>ham</td>
+      <td>Sorry, I'll call later</td>
+    </tr>
+    <tr>
+      <th>freq</th>
+      <td>4825</td>
+      <td>30</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>Let’s use <strong>groupby</strong> to use describe by label, this way we can begin to think about the features that separate ham and spam!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages</span><span class="p">.</span><span class="n">groupby</span><span class="p">(</span><span class="s">'label'</span><span class="p">).</span><span class="n">describe</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead tr th {
+        text-align: left;
+    }
+
+    .dataframe thead tr:last-of-type th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr>
+      <th></th>
+      <th colspan="4" halign="left">message</th>
+    </tr>
+    <tr>
+      <th></th>
+      <th>count</th>
+      <th>unique</th>
+      <th>top</th>
+      <th>freq</th>
+    </tr>
+    <tr>
+      <th>label</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>ham</th>
+      <td>4825</td>
+      <td>4516</td>
+      <td>Sorry, I'll call later</td>
+      <td>30</td>
+    </tr>
+    <tr>
+      <th>spam</th>
+      <td>747</td>
+      <td>653</td>
+      <td>Please call our customer service representativ...</td>
+      <td>4</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>As we continue our analysis we want to start thinking about the features we are going to be using. This goes along with the general idea of <a href="https://en.wikipedia.org/wiki/Feature_engineering">feature engineering</a>. The better your domain knowledge on the data, the better your ability to engineer more features from it. Feature engineering is a very large part of spam detection in general.</p>
+
+<p>Let’s make a new column to detect how long the text messages are:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages</span><span class="p">[</span><span class="s">'length'</span><span class="p">]</span> <span class="o">=</span> <span class="n">messages</span><span class="p">[</span><span class="s">'message'</span><span class="p">].</span><span class="nb">apply</span><span class="p">(</span><span class="nb">len</span><span class="p">)</span>
+<span class="n">messages</span><span class="p">.</span><span class="n">head</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>label</th>
+      <th>message</th>
+      <th>length</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>ham</td>
+      <td>Go until jurong point, crazy.. Available only ...</td>
+      <td>111</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>ham</td>
+      <td>Ok lar... Joking wif u oni...</td>
+      <td>29</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>spam</td>
+      <td>Free entry in 2 a wkly comp to win FA Cup fina...</td>
+      <td>155</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>ham</td>
+      <td>U dun say so early hor... U c already then say...</td>
+      <td>49</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>ham</td>
+      <td>Nah I don't think he goes to usf, he lives aro...</td>
+      <td>61</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3 id="data-visualization">Data Visualization</h3>
+<p>Let’s visualize this! Let’s do the imports:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">import</span> <span class="nn">seaborn</span> <span class="k">as</span> <span class="n">sns</span>
+
+<span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages</span><span class="p">[</span><span class="s">'length'</span><span class="p">].</span><span class="n">plot</span><span class="p">(</span><span class="n">bins</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s">'hist'</span><span class="p">)</span> 
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;AxesSubplot:ylabel='Frequency'&gt;
+</code></pre></div></div>
+
+<p><img src="/img\posts\NLP\output_20_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages</span><span class="p">[</span><span class="s">'length'</span><span class="p">].</span><span class="n">plot</span><span class="p">(</span><span class="n">bins</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s">'hist'</span><span class="p">)</span> 
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;AxesSubplot:ylabel='Frequency'&gt;
+</code></pre></div></div>
+
+<p><img src="/img\posts\NLP\output_21_1.png" alt="png" /></p>
+
+<p>Looks like text length may be a good feature to think about! Let’s try to explain why the x-axis goes all the way to 1000ish, this must mean that there is some really long message!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages</span><span class="p">.</span><span class="n">length</span><span class="p">.</span><span class="n">describe</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>count    5572.000000
+mean       80.489950
+std        59.942907
+min         2.000000
+25%        36.000000
+50%        62.000000
+75%       122.000000
+max       910.000000
+Name: length, dtype: float64
+</code></pre></div></div>
+
+<p>Let’s use masking to find this message with 910 (max) characters.:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages</span><span class="p">[</span><span class="n">messages</span><span class="p">[</span><span class="s">'length'</span><span class="p">]</span> <span class="o">==</span> <span class="mi">910</span><span class="p">][</span><span class="s">'message'</span><span class="p">]</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1085    For me the love should start with attraction.i...
+Name: message, dtype: object
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># use iloc to print the entire string
+</span><span class="n">messages</span><span class="p">[</span><span class="n">messages</span><span class="p">[</span><span class="s">'length'</span><span class="p">]</span> <span class="o">==</span> <span class="mi">910</span><span class="p">][</span><span class="s">'message'</span><span class="p">].</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>"For me the love should start with attraction.i should feel that I need her every time around me.she should be the first thing which comes in my thoughts.I would start the day and end it with her.she should be there every time I dream.love will be then when my every breath has her name.my life should happen around her.my life will be named to her.I would cry for her.will give all my happiness and take all her sorrows.I will be ready to fight with anyone for her.I will be in love when I will be doing the craziest things for her.love will be when I don't have to proove anyone that my girl is the most beautiful lady on the whole planet.I will always be singing praises for her.love will be when I start up making chicken curry and end up makiing sambar.life will be the most beautiful then.will get every morning and thank god for the day because she is with me.I would like to say a lot..will tell later.."
+</code></pre></div></div>
+
+<p>Looks like we have some sort of Romeo sending texts! But let’s focus back on the idea of trying to see if message length is a distinguishing feature between ham and spam:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages</span><span class="p">.</span><span class="n">hist</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s">'length'</span><span class="p">,</span> <span class="n">by</span><span class="o">=</span><span class="s">'label'</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span><span class="mi">4</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>array([&lt;AxesSubplot:title={'center':'ham'}&gt;,
+       &lt;AxesSubplot:title={'center':'spam'}&gt;], dtype=object)
+</code></pre></div></div>
+
+<p><img src="/img\posts\NLP\output_28_1.png" alt="png" /></p>
+
+<p>Very interesting! Through just basic EDA we’ve been able to discover a trend that spam messages tend to have more characters. (Sorry Romeo!)</p>
+
+<p>Now let’s begin to process the data so we can eventually use it with SciKit Learn!</p>
+
+<h2 id="text-pre-processing">Text Pre-processing</h2>
+
+<p>Our main issue with our data is that it is all in text format (strings). The classification algorithms will need some sort of numerical feature vector in order to perform the classification task. There are actually many methods to convert a corpus to a vector format. The simplest is the the <a href="http://en.wikipedia.org/wiki/Bag-of-words_model">bag-of-words</a> approach, where each unique word in a text will be represented by one number.</p>
+
+<p>In this section we’ll convert the raw messages (sequence of characters) into vectors (sequences of numbers).</p>
+
+<p>As a first step, let’s write a function that will split a message into its individual words and return a list. We’ll also remove very common words, (‘the’, ‘a’, etc..). To do this we will take advantage of the NLTK library. It’s pretty much the standard library in Python for processing text and has a lot of useful features. We’ll only use some of the basic ones here.</p>
+
+<p>Let’s create a function that will process the string in the message column, then we can just use <strong>apply()</strong> in pandas do process all the text in the DataFrame.</p>
+
+<p>First removing punctuation. We can just take advantage of Python’s built-in <strong>string</strong> library to get a quick list of all the possible punctuation:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">string</span>
+
+<span class="n">mess</span> <span class="o">=</span> <span class="s">'Sample message! Notice: it has punctuation.'</span>
+
+<span class="c1"># Check characters to see if they are in punctuation
+</span><span class="n">nopunc</span> <span class="o">=</span> <span class="p">[</span><span class="n">char</span> <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">mess</span> <span class="k">if</span> <span class="n">char</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">string</span><span class="p">.</span><span class="n">punctuation</span><span class="p">]</span>
+
+<span class="c1"># Join the characters again to form the string.
+</span><span class="n">nopunc</span> <span class="o">=</span> <span class="s">''</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="n">nopunc</span><span class="p">)</span>
+<span class="n">nopunc</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>'Sample message Notice it has punctuation'
+</code></pre></div></div>
+
+<p>Now let’s see how to remove stopwords. We can import a list of english stopwords from NLTK (check the documentation for more languages and info).</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">nltk.corpus</span> <span class="kn">import</span> <span class="n">stopwords</span>
+<span class="n">stopwords</span><span class="p">.</span><span class="n">words</span><span class="p">(</span><span class="s">'english'</span><span class="p">)[:</span> <span class="mi">10</span><span class="p">]</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're"]
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">stopwords</span><span class="p">.</span><span class="n">words</span><span class="p">(</span><span class="s">'english'</span><span class="p">)[</span><span class="mi">0</span><span class="p">:</span><span class="mi">10</span><span class="p">]</span> <span class="c1"># Show some stop words
+</span></code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're"]
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">nopunc</span><span class="p">.</span><span class="n">split</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>['Sample', 'message', 'Notice', 'it', 'has', 'punctuation']
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Now just remove any stopwords
+</span><span class="n">clean_mess</span> <span class="o">=</span> <span class="p">[</span><span class="n">word</span> <span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">nopunc</span><span class="p">.</span><span class="n">split</span><span class="p">()</span> <span class="k">if</span> <span class="n">word</span><span class="p">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">stopwords</span><span class="p">.</span><span class="n">words</span><span class="p">(</span><span class="s">'english'</span><span class="p">)]</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">clean_mess</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>['Sample', 'message', 'Notice', 'punctuation']
+</code></pre></div></div>
+
+<p>Now let’s put both of these together in a function to apply it to our DataFrame later on:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">text_process</span><span class="p">(</span><span class="n">mess</span><span class="p">):</span>
+    <span class="s">"""
+    Takes in a string of text, then performs the following:
+    1. Remove all punctuation
+    2. Remove all stopwords
+    3. Returns a list of the cleaned text
+    """</span>
+    <span class="c1"># Check characters to see if they are in punctuation
+</span>    <span class="n">nopunc</span> <span class="o">=</span> <span class="p">[</span><span class="n">char</span> <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">mess</span> <span class="k">if</span> <span class="n">char</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">string</span><span class="p">.</span><span class="n">punctuation</span><span class="p">]</span>
+
+    <span class="c1"># Join the characters again to form the string.
+</span>    <span class="n">nopunc</span> <span class="o">=</span> <span class="s">''</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="n">nopunc</span><span class="p">)</span>
+    
+    <span class="c1"># Now just remove any stopwords
+</span>    <span class="k">return</span> <span class="p">[</span><span class="n">word</span> <span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">nopunc</span><span class="p">.</span><span class="n">split</span><span class="p">()</span> <span class="k">if</span> <span class="n">word</span><span class="p">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">stopwords</span><span class="p">.</span><span class="n">words</span><span class="p">(</span><span class="s">'english'</span><span class="p">)]</span>
+</code></pre></div></div>
+
+<p>Here is the original DataFrame again:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages</span><span class="p">.</span><span class="n">head</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>label</th>
+      <th>message</th>
+      <th>length</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>ham</td>
+      <td>Go until jurong point, crazy.. Available only ...</td>
+      <td>111</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>ham</td>
+      <td>Ok lar... Joking wif u oni...</td>
+      <td>29</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>spam</td>
+      <td>Free entry in 2 a wkly comp to win FA Cup fina...</td>
+      <td>155</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>ham</td>
+      <td>U dun say so early hor... U c already then say...</td>
+      <td>49</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>ham</td>
+      <td>Nah I don't think he goes to usf, he lives aro...</td>
+      <td>61</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>Now let’s “tokenize” these messages. Tokenization is just the term used to describe the process of converting the normal text strings in to a list of tokens (words that we actually want).</p>
+
+<p>Let’s see an example output on on column:</p>
+
+<p><strong>Note:</strong>
+We may get some warnings or errors for symbols we didn’t account for or that weren’t in Unicode (like a British pound symbol)</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Check to make sure its working
+</span><span class="n">messages</span><span class="p">[</span><span class="s">'message'</span><span class="p">].</span><span class="n">head</span><span class="p">(</span><span class="mi">5</span><span class="p">).</span><span class="nb">apply</span><span class="p">(</span><span class="n">text_process</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>0    [Go, jurong, point, crazy, Available, bugis, n...
+1                       [Ok, lar, Joking, wif, u, oni]
+2    [Free, entry, 2, wkly, comp, win, FA, Cup, fin...
+3        [U, dun, say, early, hor, U, c, already, say]
+4    [Nah, dont, think, goes, usf, lives, around, t...
+Name: message, dtype: object
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Show original dataframe
+</span><span class="n">messages</span><span class="p">.</span><span class="n">head</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>label</th>
+      <th>message</th>
+      <th>length</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>ham</td>
+      <td>Go until jurong point, crazy.. Available only ...</td>
+      <td>111</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>ham</td>
+      <td>Ok lar... Joking wif u oni...</td>
+      <td>29</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>spam</td>
+      <td>Free entry in 2 a wkly comp to win FA Cup fina...</td>
+      <td>155</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>ham</td>
+      <td>U dun say so early hor... U c already then say...</td>
+      <td>49</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>ham</td>
+      <td>Nah I don't think he goes to usf, he lives aro...</td>
+      <td>61</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3 id="continuing-normalization">Continuing Normalization</h3>
+
+<p>There are a lot of ways to continue normalizing this text. Such as <a href="https://en.wikipedia.org/wiki/Stemming">Stemming</a> or distinguishing by <a href="http://www.nltk.org/book/ch05.html">part of speech</a>.</p>
+
+<p>NLTK has lots of built-in tools and great documentation on a lot of these methods. Sometimes they don’t work well for text-messages due to the way a lot of people tend to use abbreviations or shorthand, For example:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>'Nah dawg, IDK! Wut time u headin to da club?'
+</code></pre></div></div>
+
+<p>versus</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>'No dog, I don't know! What time are you heading to the club?'
+</code></pre></div></div>
+
+<p>Some text normalization methods will have trouble with this type of shorthand.</p>
+
+<p>So, For now we will just focus on using what we have to convert our list of words to an actual vector that SciKit-Learn can use.</p>
+
+<h2 id="vectorization">Vectorization</h2>
+
+<p>Currently, we have the messages as lists of tokens (also known as <a href="http://nlp.stanford.edu/IR-book/html/htmledition/stemming-and-lemmatization-1.html">lemmas</a>) and now we need to convert each of those messages into a vector the SciKit Learn’s algorithm models can work with.</p>
+
+<p>Now we’ll convert each message, represented as a list of tokens (lemmas) above, into a vector that machine learning models can understand.</p>
+
+<p>We’ll do that in three steps using the bag-of-words model:</p>
+
+<ol>
+  <li>
+    <p>Count how many times does a word occur in each message (Known as term frequency)</p>
+  </li>
+  <li>
+    <p>Weigh the counts, so that frequent tokens get lower weight (inverse document frequency)</p>
+  </li>
+  <li>
+    <p>Normalize the vectors to unit length, to abstract from the original text length (L2 norm)</p>
+  </li>
+</ol>
+
+<p>Let’s begin the first step:</p>
+
+<p>Each vector will have as many dimensions as there are unique words in the SMS corpus.  We will first use SciKit Learn’s <strong>CountVectorizer</strong>. This model will convert a collection of text documents to a matrix of token counts.</p>
+
+<p>We can imagine this as a 2-Dimensional matrix. Where the 1-dimension is the entire vocabulary (1 row per word) and the other dimension are the actual documents, in this case a column per text message.</p>
+
+<p>For example:</p>
+
+<p>&lt;table border = “1“&gt;</p>
+<tr>
+<th></th> <th>Message 1</th> <th>Message 2</th> <th>...</th> <th>Message N</th> 
+</tr>
+<tr>
+<td><b>Word 1 Count</b></td><td>0</td><td>1</td><td>...</td><td>0</td>
+</tr>
+<tr>
+<td><b>Word 2 Count</b></td><td>0</td><td>0</td><td>...</td><td>0</td>
+</tr>
+<tr>
+<td><b>...</b></td> <td>1</td><td>2</td><td>...</td><td>0</td>
+</tr>
+<tr>
+<td><b>Word N Count</b></td> <td>0</td><td>1</td><td>...</td><td>1</td>
+</tr>
+<p>&lt;/table&gt;</p>
+
+<p>Since there are so many messages, we can expect a lot of zero counts for the presence of that word in that document. Because of this, SciKit Learn will output a <a href="https://en.wikipedia.org/wiki/Sparse_matrix">Sparse Matrix</a>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">sklearn.feature_extraction.text</span> <span class="kn">import</span> <span class="n">CountVectorizer</span>
+</code></pre></div></div>
+
+<p>There are a lot of arguments and parameters that can be passed to the CountVectorizer. In this case we will just specify the <strong>analyzer</strong> to be our own previously defined function:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Might take awhile...
+# bow means bag of words
+</span><span class="n">bow_transformer</span> <span class="o">=</span> <span class="n">CountVectorizer</span><span class="p">(</span><span class="n">analyzer</span><span class="o">=</span><span class="n">text_process</span><span class="p">).</span><span class="n">fit</span><span class="p">(</span><span class="n">messages</span><span class="p">[</span><span class="s">'message'</span><span class="p">])</span>
+
+<span class="c1"># Print total number of vocab words
+</span><span class="k">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bow_transformer</span><span class="p">.</span><span class="n">vocabulary_</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>11425
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># printing the first 10 elements of the hashset
+</span><span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">for</span> <span class="n">ele</span> <span class="ow">in</span> <span class="n">bow_transformer</span><span class="p">.</span><span class="n">vocabulary_</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">count</span> <span class="o">==</span> <span class="mi">9</span><span class="p">:</span>
+        <span class="k">break</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">ele</span><span class="p">)</span>
+    <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Go
+jurong
+point
+crazy
+Available
+bugis
+n
+great
+world
+</code></pre></div></div>
+
+<p>Let’s take one text message and get its bag-of-words counts as a vector, putting to use our new <code class="language-plaintext highlighter-rouge">bow_transformer</code>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">message4</span> <span class="o">=</span> <span class="n">messages</span><span class="p">[</span><span class="s">'message'</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span>
+<span class="k">print</span><span class="p">(</span><span class="n">message4</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>U dun say so early hor... U c already then say...
+</code></pre></div></div>
+
+<p>Now let’s see its vector representation:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">bow4</span> <span class="o">=</span> <span class="n">bow_transformer</span><span class="p">.</span><span class="n">transform</span><span class="p">([</span><span class="n">message4</span><span class="p">])</span>
+<span class="k">print</span><span class="p">(</span><span class="n">bow4</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">bow4</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  (0, 4068)	2
+  (0, 4629)	1
+  (0, 5261)	1
+  (0, 6204)	1
+  (0, 6222)	1
+  (0, 7186)	1
+  (0, 9554)	2
+(1, 11425)
+</code></pre></div></div>
+
+<p>This means that there are seven unique words in message number 4 (after removing common stop words). Two of them appear twice, the rest only once. Let’s go ahead and check and confirm which ones appear twice:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">print</span><span class="p">(</span><span class="n">bow_transformer</span><span class="p">.</span><span class="n">get_feature_names</span><span class="p">()[</span><span class="mi">4068</span><span class="p">])</span>
+<span class="k">print</span><span class="p">(</span><span class="n">bow_transformer</span><span class="p">.</span><span class="n">get_feature_names</span><span class="p">()[</span><span class="mi">9554</span><span class="p">])</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>U
+say
+</code></pre></div></div>
+
+<p>Now we can use <strong>.transform</strong> on our Bag-of-Words (bow) transformer object and transform the entire DataFrame of messages. Let’s go ahead and check out how the bag-of-words counts for the entire SMS corpus is a large, sparse matrix:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages_bow</span> <span class="o">=</span> <span class="n">bow_transformer</span><span class="p">.</span><span class="n">transform</span><span class="p">(</span><span class="n">messages</span><span class="p">[</span><span class="s">'message'</span><span class="p">])</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">print</span><span class="p">(</span><span class="s">'Shape of Sparse Matrix: '</span><span class="p">,</span> <span class="n">messages_bow</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="s">'Amount of Non-Zero occurences: '</span><span class="p">,</span> <span class="n">messages_bow</span><span class="p">.</span><span class="n">nnz</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Shape of Sparse Matrix:  (5572, 11425)
+Amount of Non-Zero occurences:  50548
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">sparsity</span> <span class="o">=</span> <span class="p">(</span><span class="mf">100.0</span> <span class="o">*</span> <span class="n">messages_bow</span><span class="p">.</span><span class="n">nnz</span> <span class="o">/</span> <span class="p">(</span><span class="n">messages_bow</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">messages_bow</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+<span class="k">print</span><span class="p">(</span><span class="s">'sparsity: {}'</span><span class="p">.</span><span class="nb">format</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">sparsity</span><span class="p">)))</span>
+<span class="k">print</span><span class="p">(</span><span class="s">'sparsity: {}'</span><span class="p">.</span><span class="nb">format</span><span class="p">(</span><span class="n">sparsity</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>sparsity: 0
+sparsity: 0.07940295412668218
+</code></pre></div></div>
+
+<p>After the counting, the term weighting and normalization can be done with <a href="http://en.wikipedia.org/wiki/Tf%E2%80%93idf">TF-IDF</a>, using scikit-learn’s <code class="language-plaintext highlighter-rouge">TfidfTransformer</code>.</p>
+
+<hr />
+<h3 id="so-what-is-tf-idf">So what is TF-IDF?</h3>
+<p>TF-IDF stands for <em>term frequency-inverse document frequency</em>, and the tf-idf weight is a weight often used in information retrieval and text mining. This weight is a statistical measure used to evaluate how important a word is to a document in a collection or corpus. The importance increases proportionally to the number of times a word appears in the document but is offset by the frequency of the word in the corpus. Variations of the tf-idf weighting scheme are often used by search engines as a central tool in scoring and ranking a document’s relevance given a user query.</p>
+
+<p>One of the simplest ranking functions is computed by summing the tf-idf for each query term; many more sophisticated ranking functions are variants of this simple model.</p>
+
+<p>Typically, the tf-idf weight is composed by two terms: the first computes the normalized Term Frequency (TF), aka. the number of times a word appears in a document, divided by the total number of words in that document; the second term is the Inverse Document Frequency (IDF), computed as the logarithm of the number of the documents in the corpus divided by the number of documents where the specific term appears.</p>
+
+<p><strong>TF: Term Frequency</strong>, which measures how frequently a term occurs in a document. Since every document is different in length, it is possible that a term would appear much more times in long documents than shorter ones. Thus, the term frequency is often divided by the document length (aka. the total number of terms in the document) as a way of normalization:</p>
+
+<p><em>TF(t) = (Number of times term t appears in a document) / (Total number of terms in the document).</em></p>
+
+<p><strong>IDF: Inverse Document Frequency</strong>, which measures how important a term is. While computing TF, all terms are considered equally important. However it is known that certain terms, such as “is”, “of”, and “that”, may appear a lot of times but have little importance. Thus we need to weigh down the frequent terms while scale up the rare ones, by computing the following:</p>
+
+<p><em>IDF(t) = log_e(Total number of documents / Number of documents with term t in it).</em></p>
+
+<p>See below for a simple example.</p>
+
+<p><strong>Example:</strong></p>
+
+<p>Consider a document containing 100 words wherein the word cat appears 3 times.</p>
+
+<p>The term frequency (i.e., tf) for cat is then (3 / 100) = 0.03. Now, assume we have 10 million documents and the word cat appears in one thousand of these. Then, the inverse document frequency (i.e., idf) is calculated as log(10,000,000 / 1,000) = 4. Thus, the Tf-idf weight is the product of these quantities: 0.03 * 4 = 0.12.
+<em>__</em></p>
+
+<p>Let’s go ahead and see how we can do this in SciKit Learn:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">sklearn.feature_extraction.text</span> <span class="kn">import</span> <span class="n">TfidfTransformer</span>
+<span class="c1"># we will first try doing that on the fourth message for which we calculated
+# bow4 earlier
+</span><span class="n">tfidf_transformer</span> <span class="o">=</span> <span class="n">TfidfTransformer</span><span class="p">().</span><span class="n">fit</span><span class="p">(</span><span class="n">messages_bow</span><span class="p">)</span>
+<span class="n">tfidf4</span> <span class="o">=</span> <span class="n">tfidf_transformer</span><span class="p">.</span><span class="n">transform</span><span class="p">(</span><span class="n">bow4</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">tfidf4</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  (0, 9554)	0.5385626262927564
+  (0, 7186)	0.4389365653379857
+  (0, 6222)	0.3187216892949149
+  (0, 6204)	0.29953799723697416
+  (0, 5261)	0.29729957405868723
+  (0, 4629)	0.26619801906087187
+  (0, 4068)	0.40832589933384067
+</code></pre></div></div>
+
+<p>We’ll go ahead and check what is the IDF (inverse document frequency) of the word <code class="language-plaintext highlighter-rouge">"u"</code> and of word <code class="language-plaintext highlighter-rouge">"university"</code>?</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">print</span><span class="p">(</span><span class="n">tfidf_transformer</span><span class="p">.</span><span class="n">idf_</span><span class="p">[</span><span class="n">bow_transformer</span><span class="p">.</span><span class="n">vocabulary_</span><span class="p">[</span><span class="s">'u'</span><span class="p">]])</span>
+<span class="k">print</span><span class="p">(</span><span class="n">tfidf_transformer</span><span class="p">.</span><span class="n">idf_</span><span class="p">[</span><span class="n">bow_transformer</span><span class="p">.</span><span class="n">vocabulary_</span><span class="p">[</span><span class="s">'university'</span><span class="p">]])</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>3.2800524267409408
+8.527076498901426
+</code></pre></div></div>
+
+<p>To transform the entire bag-of-words corpus into TF-IDF corpus at once:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages_tfidf</span> <span class="o">=</span> <span class="n">tfidf_transformer</span><span class="p">.</span><span class="n">transform</span><span class="p">(</span><span class="n">messages_bow</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">messages_tfidf</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>(5572, 11425)
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">messages_tfidf</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;5572x11425 sparse matrix of type '&lt;class 'numpy.float64'&gt;'
+	with 50548 stored elements in Compressed Sparse Row format&gt;
+</code></pre></div></div>
+
+<p>There are many ways the data can be preprocessed and vectorized. These steps involve feature engineering and building a “pipeline”.</p>
+
+<h2 id="training-a-model">Training a model</h2>
+
+<p>With messages represented as vectors, we can finally train our spam/ham classifier. Now we can actually use almost any sort of classification algorithms. For a <a href="http://www.inf.ed.ac.uk/teaching/courses/inf2b/learnnotes/inf2b-learn-note07-2up.pdf">variety of reasons</a>, the Naive Bayes classifier algorithm is a good choice.</p>
+
+<p>We’ll be using scikit-learn here, choosing the <a href="http://en.wikipedia.org/wiki/Naive_Bayes_classifier">Naive Bayes</a> classifier to start with:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">sklearn.naive_bayes</span> <span class="kn">import</span> <span class="n">MultinomialNB</span>
+<span class="n">spam_detect_model</span> <span class="o">=</span> <span class="n">MultinomialNB</span><span class="p">().</span><span class="n">fit</span><span class="p">(</span><span class="n">messages_tfidf</span><span class="p">,</span> <span class="n">messages</span><span class="p">[</span><span class="s">'label'</span><span class="p">])</span>
+</code></pre></div></div>
+
+<p>Let’s try classifying our single random message and checking how we do:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">print</span><span class="p">(</span><span class="s">'predicted:'</span><span class="p">,</span> <span class="n">spam_detect_model</span><span class="p">.</span><span class="n">predict</span><span class="p">(</span><span class="n">tfidf4</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+<span class="k">print</span><span class="p">(</span><span class="s">'expected:'</span><span class="p">,</span> <span class="n">messages</span><span class="p">.</span><span class="n">label</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>predicted: ham
+expected: ham
+</code></pre></div></div>
+
+<p>Fantastic! We’ve developed a model that can attempt to predict spam vs ham classification!</p>
+
+<h2 id="part-6-model-evaluation">Part 6: Model Evaluation</h2>
+<p>Now we want to determine how well our model will do overall on the entire dataset. Let’s begin by getting all the predictions:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">all_predictions</span> <span class="o">=</span> <span class="n">spam_detect_model</span><span class="p">.</span><span class="n">predict</span><span class="p">(</span><span class="n">messages_tfidf</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">all_predictions</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>['ham' 'ham' 'spam' ... 'ham' 'ham' 'ham']
+</code></pre></div></div>
+
+<p>We can use SciKit Learn’s built-in classification report, which returns <a href="https://en.wikipedia.org/wiki/Precision_and_recall">precision, recall,</a> <a href="https://en.wikipedia.org/wiki/F1_score">f1-score</a>, and a column for support (meaning how many cases supported that classification). Check out the links for more detailed info on each of these metrics and the figure below:</p>
+
+<p><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Precisionrecall.svg/700px-Precisionrecall.svg.png" width="400" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">classification_report</span>
+<span class="k">print</span> <span class="p">(</span><span class="n">classification_report</span><span class="p">(</span><span class="n">messages</span><span class="p">[</span><span class="s">'label'</span><span class="p">],</span> <span class="n">all_predictions</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>              precision    recall  f1-score   support
+
+         ham       0.98      1.00      0.99      4825
+        spam       1.00      0.85      0.92       747
+
+    accuracy                           0.98      5572
+   macro avg       0.99      0.92      0.95      5572
+weighted avg       0.98      0.98      0.98      5572
+</code></pre></div></div>
+
+<p>There are quite a few possible metrics for evaluating model performance. Which one is the most important depends on the task and the business effects of decisions based off of the model. For example, the cost of mis-predicting “spam” as “ham” is probably much lower than mis-predicting “ham” as “spam”.</p>
+
+<p>In the above “evaluation”,we evaluated accuracy on the same data we used for training. <strong>You should never actually evaluate on the same dataset you train on!</strong></p>
+
+<p>Such evaluation tells us nothing about the true predictive power of our model. If we simply remembered each example during training, the accuracy on training data would trivially be 100%, even though we wouldn’t be able to classify any new messages.</p>
+
+<p>A proper way is to split the data into a training/test set, where the model only ever sees the <strong>training data</strong> during its model fitting and parameter tuning. The <strong>test data</strong> is never used in any way. This is then our final evaluation on test data is representative of true predictive performance.</p>
+
+<h2 id="train-test-split">Train Test Split</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span>
+
+<span class="n">msg_train</span><span class="p">,</span> <span class="n">msg_test</span><span class="p">,</span> <span class="n">label_train</span><span class="p">,</span> <span class="n">label_test</span> <span class="o">=</span> \
+<span class="n">train_test_split</span><span class="p">(</span><span class="n">messages</span><span class="p">[</span><span class="s">'message'</span><span class="p">],</span> <span class="n">messages</span><span class="p">[</span><span class="s">'label'</span><span class="p">],</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+
+<span class="k">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">msg_train</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">msg_test</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">msg_train</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">msg_test</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>4457 1115 5572
+</code></pre></div></div>
+
+<p>The test size is 20% of the entire dataset (1115 messages out of total 5572), and the training is the rest (4457 out of 5572). Note the default split would have been 30/70.</p>
+
+<h2 id="creating-a-data-pipeline">Creating a Data Pipeline</h2>
+
+<p>Now, rather than doing the countVectorization, tfidf transformation etc on out split data all over again and again, we can create a pipeline for the same using sklearn’s capabilities.</p>
+
+<p>Let’s run our model again and then predict off the test set. We will use SciKit Learn’s <a href="http://scikit-learn.org/stable/modules/pipeline.html">pipeline</a> capabilities to store a pipeline of workflow. This will allow us to set up all the transformations that we will do to the data for future use. Let’s see an example of how it works:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">sklearn.pipeline</span> <span class="kn">import</span> <span class="n">Pipeline</span>
+
+<span class="n">pipeline</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span>
+    <span class="p">(</span><span class="s">'bow'</span><span class="p">,</span> <span class="n">CountVectorizer</span><span class="p">(</span><span class="n">analyzer</span><span class="o">=</span><span class="n">text_process</span><span class="p">)),</span>  <span class="c1"># strings to token integer counts
+</span>    <span class="p">(</span><span class="s">'tfidf'</span><span class="p">,</span> <span class="n">TfidfTransformer</span><span class="p">()),</span>  <span class="c1"># integer counts to weighted TF-IDF scores
+</span>    <span class="p">(</span><span class="s">'classifier'</span><span class="p">,</span> <span class="n">MultinomialNB</span><span class="p">()),</span>  <span class="c1"># train on TF-IDF vectors w/ Naive Bayes classifier
+</span><span class="p">])</span>
+
+<span class="c1"># we are passing a list to Pipeline function and the list contains tuples.
+# the string in each tuple is just to reference that step
+</span></code></pre></div></div>
+
+<p>Now we can directly pass message text data and the pipeline will do our pre-processing for us! We can treat it as a model/estimator API:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">pipeline</span><span class="p">.</span><span class="n">fit</span><span class="p">(</span><span class="n">msg_train</span><span class="p">,</span><span class="n">label_train</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Pipeline(steps=[('bow',
+                 CountVectorizer(analyzer=&lt;function text_process at 0x0000022DA68C4310&gt;)),
+                ('tfidf', TfidfTransformer()),
+                ('classifier', MultinomialNB())])
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">predictions</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">.</span><span class="n">predict</span><span class="p">(</span><span class="n">msg_test</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">print</span><span class="p">(</span><span class="n">classification_report</span><span class="p">(</span><span class="n">predictions</span><span class="p">,</span><span class="n">label_test</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>              precision    recall  f1-score   support
+
+         ham       1.00      0.96      0.98      1006
+        spam       0.75      1.00      0.85       109
+
+    accuracy                           0.97      1115
+   macro avg       0.87      0.98      0.92      1115
+weighted avg       0.98      0.97      0.97      1115
+</code></pre></div></div>
+
+<p>We can also try using RandomForestClassifier instead of Naive Bayes!</p>
+
+<p>Now we have a classification report for our model on a true testing set!</p>
+:ET
