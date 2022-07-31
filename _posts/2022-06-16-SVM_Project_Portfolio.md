@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Predicting Iris Flower Spieces using SVM"
+title: "Predicting Iris Flower Speices using SVM"
 subtitle: "python and scikit-learn"
 background: '/img/posts/SVM/iris-bg.jpeg'
 ---
